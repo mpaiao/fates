@@ -65,6 +65,7 @@ module FatesInterfaceMod
    use PRTGenericMod             , only : element_list
    use PRTGenericMod             , only : element_pos
    use EDParamsMod               , only : eca_plant_escalar
+   use PRTGenericMod             , only : prt_csimpler_allom_hyp
    use PRTGenericMod             , only : prt_carbon_allom_hyp
    use PRTGenericMod             , only : prt_cnp_flex_allom_hyp
    use PRTGenericMod             , only : carbon12_element
@@ -306,7 +307,7 @@ contains
 
     ! Fates -> BGC fragmentation mass fluxes
     select case(hlm_parteh_mode) 
-    case(prt_carbon_allom_hyp)
+    case(prt_csimpler_allom_hyp,prt_carbon_allom_hyp)
        fates%bc_out(s)%litt_flux_cel_c_si(:) = 0._r8
        fates%bc_out(s)%litt_flux_lig_c_si(:) = 0._r8
        fates%bc_out(s)%litt_flux_lab_c_si(:) = 0._r8
@@ -439,7 +440,8 @@ contains
       ! uptake for each cohort, and don't need to allocate by layer
       ! Allocating differently could save a lot of memory and time
 
-      if (hlm_parteh_mode .eq. prt_cnp_flex_allom_hyp) then
+      select case (hlm_parteh_mode)
+      case (prt_cnp_flex_allom_hyp)
          if(fates_np_comp_scaling.eq.cohort_np_comp_scaling) then
             allocate(bc_in%plant_nh4_uptake_flux(max_comp_per_site,1))
             allocate(bc_in%plant_no3_uptake_flux(max_comp_per_site,1))
@@ -449,11 +451,11 @@ contains
             allocate(bc_in%plant_no3_uptake_flux(max_comp_per_site,bc_in%nlevdecomp))
             allocate(bc_in%plant_p_uptake_flux(max_comp_per_site,bc_in%nlevdecomp))
          end if
-      else
+      case default
          allocate(bc_in%plant_nh4_uptake_flux(1,1))
          allocate(bc_in%plant_no3_uptake_flux(1,1))
          allocate(bc_in%plant_p_uptake_flux(1,1))
-      end if
+      end select
 
 
       allocate(bc_in%zi_sisl(0:nlevsoil_in))
@@ -627,7 +629,7 @@ contains
          
       ! Fates -> BGC fragmentation mass fluxes
       select case(hlm_parteh_mode) 
-      case(prt_carbon_allom_hyp)
+      case(prt_csimpler_allom_hyp,prt_carbon_allom_hyp)
          allocate(bc_out%litt_flux_cel_c_si(nlevdecomp_in))
          allocate(bc_out%litt_flux_lig_c_si(nlevdecomp_in))
          allocate(bc_out%litt_flux_lab_c_si(nlevdecomp_in))
@@ -800,7 +802,8 @@ contains
          ! Note: since BGC code may be active even when no nutrients
          ! present, we still need to allocate things when no nutrients
 
-         if (hlm_parteh_mode .eq. prt_cnp_flex_allom_hyp ) then
+         select case (hlm_parteh_mode)
+         case (prt_cnp_flex_allom_hyp)
             if(fates_np_comp_scaling.eq.cohort_np_comp_scaling) then
                max_comp_per_site = fates_maxElementsPerSite
             elseif(fates_np_comp_scaling.eq.pft_np_comp_scaling) then
@@ -809,9 +812,9 @@ contains
                write(fates_log(), *) 'An unknown nutrient competitor scaling method was chosen?'
                call endrun(msg=errMsg(sourcefile, __LINE__))
             end if
-         else
+         case default
             max_comp_per_site = 1
-         end if
+         end select
             
          ! calculate the bin edges for radiative transfer calculations
          ! VAI bin widths array 
@@ -939,7 +942,7 @@ contains
      ! automatically.
      
      select case(hlm_parteh_mode)
-     case(prt_carbon_allom_hyp)
+     case(prt_csimpler_allom_hyp,prt_carbon_allom_hyp)
 
         num_elements = 1
         allocate(element_list(num_elements))

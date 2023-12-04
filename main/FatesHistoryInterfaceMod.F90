@@ -2503,8 +2503,9 @@ end subroutine flush_hvars
                hio_err_fates_si                     => this%hvars(ih_err_fates_si)%r82d, &
                hio_lai_si                           => this%hvars(ih_lai_si)%r81d )
 
+   ! MLO - Temporarily disabling this.
    ! If we don't have dynamics turned on, we just abort these diagnostics
-   if (hlm_use_ed_st3.eq.itrue) return
+   ! if (hlm_use_ed_st3.eq.itrue) return
 
    model_day_int = nint(hlm_model_day)
 

@@ -635,17 +635,19 @@ contains
     ! returns the storage pool as a fraction of its target (only if it is below its target)
     ! used in both the carbon starvation mortlaity scheme as well as the optional
     ! respiration throttling logic
+    !
+    ! This no longer caps target to 1 as it could cause carbon starvation mortality
+    ! rates to stop decaying when mort_cstarvation_model is 2. Eliminating this cap does 
+    ! not impact the default mort_cstarvation_model is 1 (as mortality is capped at 0) or
+    ! lowstorage_maintresp_reduction, as it imposes no reduction when the fraction is
+    ! greater than 1.
     !--------------------------------------------------------------------------------
 
     real(r8),intent(in)    :: c_store_target  ! target storage carbon [kg]
     real(r8),intent(in)    :: c_store         ! storage carbon [kg]
     real(r8),intent(out)   :: frac
 
-    if( c_store_target > 0._r8 .and. c_store <= c_store_target )then
-       frac = c_store/ c_store_target
-    else
-       frac = 1._r8
-    endif
+    frac = max(0._r8, c_store / max( c_store_target, nearzero) )
 
   end subroutine storage_fraction_of_target
 

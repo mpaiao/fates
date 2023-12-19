@@ -235,10 +235,10 @@ module EDPftvarcon
      real(r8), allocatable :: vcmax25top(:,:)             ! maximum carboxylation rate of Rub. at 25C,
                                                           ! canopy top [umol CO2/m^2/s].  Dimensioned by
                                                           ! leaf age-class
-     real(r8), allocatable :: jmax25_scale(:,:)              ! Maximum electron transport rate at 25C,
+     real(r8), allocatable :: jmax25top_scale(:,:)        ! Maximum electron transport rate at 25C,
                                                           ! canopy top [umol electrons/m^2/s].  Dimensioned by
                                                           ! leaf age-class
-     real(r8), allocatable :: kp25top_scale(:,:)                ! Initial slope of CO2 response curve (C4 plants) at 25C,
+     real(r8), allocatable :: kp25top_scale(:,:)          ! Initial slope of CO2 response curve (C4 plants) at 25C,
                                                           ! canopy top [mol/molCO2].  Dimensioned by
                                                           ! leaf age-class
 
@@ -1438,11 +1438,11 @@ contains
     call fates_params%RegisterParameter(name=name, dimension_shape=dimension_shape_2d, &
          dimension_names=dim_names, lower_bounds=dim_lower_bound)
 
-    name = 'fates_leaf_jmax25_scale'
+    name = 'fates_leaf_jmax25top_scale'
     call fates_params%RegisterParameter(name=name, dimension_shape=dimension_shape_2d, &
          dimension_names=dim_names, lower_bounds=dim_lower_bound)
 
-    name = 'fates_leaf_kp25_scale'
+    name = 'fates_leaf_kp25top_scale'
     call fates_params%RegisterParameter(name=name, dimension_shape=dimension_shape_2d, &
          dimension_names=dim_names, lower_bounds=dim_lower_bound)
 
@@ -1471,13 +1471,13 @@ contains
      call fates_params%RetrieveParameterAllocate(name=name, &
           data=this%vcmax25top)
 
-     name = 'fates_leaf_jmax25_scale'
+     name = 'fates_leaf_jmax25top_scale'
      call fates_params%RetrieveParameterAllocate(name=name, &
-          data=this%jmax25_scale)
+          data=this%jmax25top_scale)
 
-     name = 'fates_leaf_kp25_scale'
+     name = 'fates_leaf_kp25top_scale'
      call fates_params%RetrieveParameterAllocate(name=name, &
-          data=this%kp25_scale)
+          data=this%kp25top_scale)
 
      return
    end subroutine Receive_PFT_leafage
@@ -1689,8 +1689,8 @@ contains
         write(fates_log(),fmt0) 'clumping_index = ',EDPftvarcon_inst%clumping_index
         write(fates_log(),fmt0) 'c3psn = ',EDPftvarcon_inst%c3psn
         write(fates_log(),fmt0) 'vcmax25top = ',EDPftvarcon_inst%vcmax25top
-        write(fates_log(),fmt0) 'jmax25_scale = ',EDPftvarcon_inst%jmax25_scale
-        write(fates_log(),fmt0) 'kp25_scale = ',EDPftvarcon_inst%kp25_scale
+        write(fates_log(),fmt0) 'jmax25top_scale = ',EDPftvarcon_inst%jmax25top_scale
+        write(fates_log(),fmt0) 'kp25top_scale = ',EDPftvarcon_inst%kp25top_scale
         write(fates_log(),fmt0) 'smpso = ',EDPftvarcon_inst%smpso
         write(fates_log(),fmt0) 'smpsc = ',EDPftvarcon_inst%smpsc
         write(fates_log(),fmt0) 'bmort = ',EDPftvarcon_inst%bmort

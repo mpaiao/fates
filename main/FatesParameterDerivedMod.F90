@@ -95,9 +95,9 @@ contains
     integer  :: iage               ! leaf age class index
     integer  :: c                  ! cwd index
 
-    associate( vcmax25top   => EDPftvarcon_inst%vcmax25top  ,  &
-               jmax25_scale => EDPftvarcon_inst%jmax25_scale,  &
-               kp25_scale   => EDPftvarcon_inst%kp25_scale  )
+    associate( vcmax25top      => EDPftvarcon_inst%vcmax25top     ,  &
+               jmax25top_scale => EDPftvarcon_inst%jmax25top_scale,  &
+               kp25top_scale   => EDPftvarcon_inst%kp25top_scale  )
     
       call this%InitAllocate(numpft)
       call this%InitDamageTransitions(numpft)
@@ -120,9 +120,9 @@ contains
             ! ML - turned the scaling factors for Jmax and kp into parameters. No update
             !      for tpu25top because it does not seem to be used anywhere.
             
-            this%jmax25top(ft,iage) = jmax25_scale(ft,iage) * vcmax25top(ft,iage)
-            this%tpu25top (ft,iage) = 0.167_r8              * vcmax25top(ft,iage)
-            this%kp25top  (ft,iage) = kp25_scale  (ft,iage) * vcmax25top(ft,iage)
+            this%jmax25top(ft,iage) = jmax25top_scale(ft,iage) * vcmax25top(ft,iage)
+            this%tpu25top (ft,iage) = 0.167_r8                 * vcmax25top(ft,iage)
+            this%kp25top  (ft,iage) = kp25top_scale  (ft,iage) * vcmax25top(ft,iage)
 
          end do
 

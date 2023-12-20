@@ -908,21 +908,25 @@ contains
      ! Argument
      logical, intent(in) :: is_master  ! Only log if this is the master proc
 
-     logical, parameter :: debug_report = .false.
-     character(len=15),parameter :: fmti = '(a,100(I12,1X))'
-     character(len=32),parameter :: fmt0 = '(a,100(F12.4,1X))'
+     logical, parameter :: debug_report = .true.
+     character(len=15) :: fmti
+     character(len=18) :: fmt0
 
      integer :: npft,ipft
      
      npft = size(prt_params%allom_hmode,1)
      
      if(debug_report .and. is_master) then
-        
-        if(npft>100)then
-           write(fates_log(),*) 'you are trying to report pft parameters during initialization'
+
+        if (npft > 999) then
+           write(fates_log(),*) 'You are trying to report pft parameters during initialization'
            write(fates_log(),*) 'but you have so many that it is over-running the format spec'
-           write(fates_log(),*) 'simply bump up the muptiplier in parameter fmt0 shown above'
+           write(fates_log(),*) 'simply bump up the i3.3 format to more digits in variable fmt0'
+           write(fates_log(),*) 'defined in the else statement near this error message.'
            call endrun(msg=errMsg(sourcefile, __LINE__))
+        else
+           write(fmt0,'(a,i3.3,a)') '(a,',npft,'(es12.5,1x))'
+           write(fmti,'(a,i3.3,a)') '(a,',npft,'(i12,1x))'
         end if
 
         write(fates_log(),*) '-----------  FATES PARTEH Parameters -----------------'

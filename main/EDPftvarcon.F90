@@ -1651,7 +1651,7 @@ contains
      logical, intent(in) :: is_master  ! Only log if this is the master proc
 
      logical, parameter :: debug_report = .true.
-     character(len=32)  :: fmt0
+     character(len=18)  :: fmt0
 
      integer :: npft,ipft
 

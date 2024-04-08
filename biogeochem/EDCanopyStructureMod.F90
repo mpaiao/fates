@@ -11,6 +11,7 @@ module EDCanopyStructureMod
   use FatesConstantsMod     , only : nearzero, area_error_1
   use FatesConstantsMod     , only : rsnbl_math_prec
   use FatesConstantsMod     , only : nocomp_bareground
+  use FatesConstantsMod,      only : i_term_mort_type_canlev
   use FatesGlobals          , only : fates_log
   use EDPftvarcon           , only : EDPftvarcon_inst
   use PRTParametersMod      , only : prt_params
@@ -742,7 +743,7 @@ contains
              if(currentCohort%canopy_layer>nclmax )then
                 ! put the litter from the terminated cohorts
                 ! straight into the fragmenting pools
-                call terminate_cohort(currentSite,currentPatch,currentCohort,bc_in)
+                call terminate_cohort(currentSite,currentPatch,currentCohort,bc_in,i_term_mort_type_canlev)
                 deallocate(currentCohort, stat=istat, errmsg=smsg)
                 if (istat/=0) then
                    write(fates_log(),*) 'dealloc012: fail on deallocate(currentCohort):'//trim(smsg)
@@ -1533,7 +1534,6 @@ contains
     real(r8) :: elai_layer,tlai_layer    ! leaf area per canopy area
     real(r8) :: esai_layer,tsai_layer    ! stem area per canopy area
     real(r8) :: vai_top,vai_bot          ! integrated top down veg area index at boundary of layer
-
     real(r8) :: layer_bottom_height,layer_top_height,lai,sai  ! Can be removed later
     !----------------------------------------------------------------------
 
@@ -1612,7 +1612,6 @@ contains
                    write(fates_log(), *) ' currentPatch%nrad(cl,ft): ', currentPatch%nrad(cl,ft)
                    call endrun(msg=errMsg(sourcefile, __LINE__))
                 end if
-
 
                 !---~---
                 !   Find current crown depth using the allometric function.

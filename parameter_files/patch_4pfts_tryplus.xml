@@ -13,9 +13,9 @@
          <fates_pftname> EarlyEvergreenOlma,LateEvergreenLcrb,NFixerEvergreenZygt,DroughtDeciduousZnts </fates_pftname>
          <fates_wood_density> 0.460, 0.643, 0.624, 0.576 </fates_wood_density>
          <fates_leaf_slatop> 0.0267, 0.0202, 0.0219, 0.0276 </fates_leaf_slatop>
-         <fates_phen_evergreen> 1 1 1 0 </fates_phen_evergreen>
-         <fates_phen_season_decid> 0 0 0 0 </fates_phen_season_decid>
-         <fates_phen_stress_decid> 0 0 0 1 </fates_phen_stress_decid>
+         <fates_phen_evergreen> 1, 1, 1, 0 </fates_phen_evergreen>
+         <fates_phen_season_decid> 0, 0, 0, 0 </fates_phen_season_decid>
+         <fates_phen_stress_decid> 0, 0, 0, 1 </fates_phen_stress_decid>
       </pft_group>
       <non_pft_group>
          <fates_history_size_bins> 8 </fates_history_size_bins>

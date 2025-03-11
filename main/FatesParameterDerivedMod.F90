@@ -94,7 +94,9 @@ contains
     integer  :: ft                 ! pft index
     integer  :: iage               ! leaf age class index
 
-    associate( vcmax25top => EDPftvarcon_inst%vcmax25top ) 
+    associate( vcmax25top      => EDPftvarcon_inst%vcmax25top     ,  &
+               jmax25top_scale => EDPftvarcon_inst%jmax25top_scale,  &
+               kp25top_scale   => EDPftvarcon_inst%kp25top_scale  )
     
       call this%InitAllocate(numpft)
       call this%InitDamageTransitions(numpft)
@@ -114,10 +116,13 @@ contains
             ! jmax25top(ft) =  &
             ! (2.59_r8 - 0.035_r8*min(max((t10(p)-tfrzc),11._r8),35._r8)) * vcmax25top(ft)
             
-            this%jmax25top(ft,iage) = 1.67_r8   * vcmax25top(ft,iage)
-            this%tpu25top(ft,iage)  = 0.167_r8  * vcmax25top(ft,iage)
-            this%kp25top(ft,iage)   = 20000._r8 * vcmax25top(ft,iage)
-         
+            ! ML - turned the scaling factors for Jmax and kp into parameters. No update
+            !      for tpu25top because it does not seem to be used anywhere.
+            
+            this%jmax25top(ft,iage) = jmax25top_scale(ft,iage) * vcmax25top(ft,iage)
+            this%tpu25top (ft,iage) = 0.167_r8                 * vcmax25top(ft,iage)
+            this%kp25top  (ft,iage) = kp25top_scale  (ft,iage) * vcmax25top(ft,iage)
+
          end do
 
          ! Allocate fraction of aboveground woody biomass in branches

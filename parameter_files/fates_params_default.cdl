@@ -363,6 +363,9 @@ variables:
 	double fates_leaf_c3psn(fates_pft) ;
 		fates_leaf_c3psn:units = "flag" ;
 		fates_leaf_c3psn:long_name = "Photosynthetic pathway (1=c3, 0=c4)" ;
+	double fates_leaf_jmax25top_scale(fates_leafage_class, fates_pft) ;
+		fates_leaf_jmax25top_scale:units = "(mol electron)/(mol CO2)" ;
+		fates_leaf_jmax25top_scale:long_name = "ratio between Jmax (maximum electron transport rate) and Vcmax (maximum carboxylation rate) at 25C, canopy top" ;
 	double fates_leaf_jmaxha(fates_pft) ;
 		fates_leaf_jmaxha:units = "J/mol" ;
 		fates_leaf_jmaxha:long_name = "activation energy for jmax. NOTE: if fates_leaf_photo_tempsens_model=2 then these values are NOT USED" ;
@@ -372,6 +375,9 @@ variables:
 	double fates_leaf_jmaxse(fates_pft) ;
 		fates_leaf_jmaxse:units = "J/mol/K" ;
 		fates_leaf_jmaxse:long_name = "entropy term for jmax. NOTE: if fates_leaf_photo_tempsens_model=2 then these values are NOT USED" ;
+	double fates_leaf_kp25top_scale(fates_leafage_class, fates_pft) ;
+		fates_leaf_kp25top_scale:units = "mol/micro-mol" ;
+		fates_leaf_kp25top_scale:long_name = "Scaling parameter (to be multiplied by Vcmax25top) for initial slope of CO2 response curve (C4 plants) at 25C, canopy top" ;
 	double fates_leaf_slamax(fates_pft) ;
 		fates_leaf_slamax:units = "m^2/gC" ;
 		fates_leaf_slamax:long_name = "Maximum Specific Leaf Area (SLA), even if under a dense canopy" ;
@@ -1350,6 +1356,9 @@ data:
 
  fates_leaf_c3psn = 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0 ;
 
+ fates_leaf_jmax25top_scale =
+   1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67, 1.67 ;
+
  fates_leaf_jmaxha = 43540, 43540, 43540, 43540, 43540, 43540, 43540, 43540, 
     43540, 43540, 43540, 43540, 43540, 43540 ;
 
@@ -1358,6 +1367,9 @@ data:
 
  fates_leaf_jmaxse = 495, 495, 495, 495, 495, 495, 495, 495, 495, 495, 495, 
     495, 495, 495 ;
+
+ fates_leaf_kp25top_scale = 18000., 18000., 18000., 18000., 18000., 18000., 
+    18000., 18000., 18000., 18000., 18000., 18000. ;
 
  fates_leaf_slamax = 0.0954, 0.0954, 0.0954, 0.0954, 0.0954, 0.0954, 0.012, 
     0.03, 0.03, 0.012, 0.032, 0.05, 0.05, 0.05 ;

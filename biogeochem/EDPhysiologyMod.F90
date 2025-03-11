@@ -66,6 +66,8 @@ module EDPhysiologyMod
   use EDParamsMod         , only : nclmax
   use EDTypesMod          , only : AREA,AREA_INV
   use FatesConstantsMod   , only : leaves_shedding
+  use FatesConstantsMod   , only : ievergreen
+  use FatesConstantsMod   , only : ihard_season_decid
   use FatesConstantsMod   , only : ihard_stress_decid
   use FatesConstantsMod   , only : isemi_stress_decid
   use EDParamsMod         , only : nlevleaf
@@ -98,7 +100,6 @@ module EDPhysiologyMod
   use EDParamsMod           , only : q10_mr
   use EDParamsMod           , only : q10_froz
   use EDParamsMod           , only : logging_export_frac
-  use EDParamsMod           , only : regeneration_model
   use EDParamsMod           , only : sdlng_mort_par_timescale
   use FatesPlantHydraulicsMod  , only : AccumulateMortalityWaterStorage
   use FatesConstantsMod     , only : itrue,ifalse
@@ -143,7 +144,8 @@ module EDPhysiologyMod
   use FatesParameterDerivedMod, only : param_derived
   use FatesPlantHydraulicsMod, only : InitHydrCohort
   use PRTInitParamsFatesMod, only : NewRecruitTotalStoichiometry
-  use FatesInterfaceTypesMod    , only : hlm_use_luh
+  use FatesInterfaceTypesMod, only : hlm_use_luh
+  use FatesInterfaceTypesMod, only : hlm_regeneration_model
 
   implicit none
   private
@@ -775,20 +777,21 @@ contains
                 sla_levleaf = min(sla_max,prt_params%slatop(ipft)/nscaler_levleaf)
 
                 ! Find the realised leaf lifespan, depending on the leaf phenology.
-                if (prt_params%season_decid(ipft) ==  itrue) then
+                select case (prt_params%phen_leaf_habit(ipft))
+                case (ihard_season_decid)
                    ! Cold-deciduous costs. Assume time-span to be 1 year to be consistent
                    ! with FATES default
                    pft_leaf_lifespan = decid_leaf_long_max
 
-                elseif (any(prt_params%stress_decid(ipft) == [ihard_stress_decid,isemi_stress_decid]) )then
+                case (ihard_stress_decid,isemi_stress_decid)
                    ! Drought-decidous costs. Assume time-span to be the least between
                    !    1 year and the life span provided by the parameter file.
                    pft_leaf_lifespan = &
                       min(decid_leaf_long_max,leaf_long)
 
-                else !evergreen costs
+                case (ievergreen) !evergreen costs
                    pft_leaf_lifespan = leaf_long
-                end if
+                end select
 
                 ! Leaf cost at leaf level z (kgC m-2 year-1) accounting for sla profile
                 ! (Convert from SLA in m2g-1 to m2kg-1)
@@ -1298,7 +1301,7 @@ contains
        !    the leaf biomass will be capped at 40% of the biomass the cohort would have if
        !    it were in well-watered conditions.
        !---~---
-       case_drought_phen: select case (prt_params%stress_decid(ipft))
+       case_drought_phen: select case (prt_params%phen_leaf_habit(ipft))
        case (ihard_stress_decid)
           !---~---
           !    Default ("hard") drought deciduous phenology. The decision on whether to 
@@ -1517,11 +1520,11 @@ contains
 
           ! Assign elongation factors for non-drought deciduous PFTs, which will be used
           ! to define the cohort status.
-          case_cold_phen: select case(prt_params%season_decid(ipft))
-          case (ifalse)
+          case_cold_phen: select case(prt_params%phen_leaf_habit(ipft))
+          case (ievergreen)
              ! Evergreen, ensure that elongation factor is always one.
              currentSite%elong_factor(ipft) = 1.0_r8
-          case (itrue)
+          case (ihard_season_decid)
              ! Cold-deciduous. Define elongation factor based on cold status
              select case (currentSite%cstatus)
              case (phen_cstat_nevercold,phen_cstat_iscold)
@@ -1620,7 +1623,8 @@ contains
           ! MLO. To avoid duplicating code for drought and cold deciduous PFTs, we first
           !      check whether or not it's time to flush or time to shed leaves, then
           !      use a common code for flushing or shedding leaves.
-          is_time_block: if (prt_params%season_decid(ipft) == itrue) then ! Cold deciduous
+          is_time_block: select case (prt_params%phen_leaf_habit(ipft))
+          case (ihard_season_decid) ! Cold deciduous
 
              ! A. Is this the time for COLD LEAVES to switch to ON?
              is_flushing_time = ( currentSite%cstatus      == phen_cstat_notcold .and. & ! We just moved to leaves being on
@@ -1631,7 +1635,7 @@ contains
                                 ( currentCohort%dbh > EDPftvarcon_inst%phen_cold_size_threshold(ipft) .or. & ! Grasses are big enough or...
                                   prt_params%woody(ipft) == itrue                                     )      ! this is a woody PFT.
 
-          elseif (any(prt_params%stress_decid(ipft) == [ihard_stress_decid,isemi_stress_decid]) ) then ! Drought deciduous
+          case (ihard_stress_decid,isemi_stress_decid) ! Drought deciduous
 
              ! A. Is this the time for DROUGHT LEAVES to switch to ON?
              is_flushing_time = any( currentSite%dstatus(ipft) == [phen_dstat_moiston,phen_dstat_timeon] ) .and.  & ! Leaf flushing time (moisture or time)
@@ -1640,11 +1644,11 @@ contains
              !    This will be true when leaves are abscissing (partially or fully) due to moisture or time
              is_shedding_time = any( currentSite%dstatus(ipft) == [phen_dstat_moistoff,phen_dstat_timeoff,phen_dstat_pshed] ) .and. &
                                 any( currentCohort%status_coh  == [leaves_on,leaves_shedding] )
-          else
+          case (ievergreen)
              ! This PFT is not deciduous.
              is_flushing_time         = .false.
              is_shedding_time         = .false.
-          end if is_time_block
+          end select is_time_block
 
 
 
@@ -2157,7 +2161,7 @@ contains
                 litt%seed_in_local(pft) = litt%seed_in_local(pft) + site_seed_rain(pft)*(1.0_r8-site_disp_frac(pft))/area ![kg/m2/day]
 
                 ! If we are using the Tree Recruitment Scheme (TRS) with or w/o seedling dynamics
-                if ( any(regeneration_model == [TRS_regeneration, TRS_no_seedling_dyn]) .and. &
+                if ( any(hlm_regeneration_model == [TRS_regeneration, TRS_no_seedling_dyn]) .and. &
                      prt_params%allom_dbh_maxheight(pft) > min_max_dbh_for_trees) then
                    
                    ! Send a fraction of reproductive carbon to litter to account for 
@@ -2215,7 +2219,7 @@ contains
     !
     ! !DESCRIPTION:
     ! 1. Flux from seed pool into leaf litter pool
-    ! 2. If the TRS with seedling dynamics is on (regeneration_model = 3)
+    ! 2. If the TRS with seedling dynamics is on (hlm_regeneration_model = 3)
     !    then we calculate seedling mortality here (i.e. flux from seedling pool
     !    (into leaf litter pool)   
     !
@@ -2249,7 +2253,7 @@ contains
     
        ! If the TRS is switched off or the pft can't get big enough to be considered a tree 
        ! then use FATES default regeneration.
-       if ( regeneration_model == default_regeneration .or. &
+       if ( hlm_regeneration_model == default_regeneration .or. &
             prt_params%allom_dbh_maxheight(pft) < min_max_dbh_for_trees ) then
 
           ! Default seed decay (TRS is off)
@@ -2261,7 +2265,7 @@ contains
        ! If the TRS is switched on and the pft is a tree then add non-seed reproductive biomass
        ! to the seed decay flux. This was added to litt%seed_decay in the previously called SeedIn 
        ! subroutine
-       if ( any(regeneration_model == [TRS_regeneration, TRS_no_seedling_dyn]) .and. &
+       if ( any(hlm_regeneration_model == [TRS_regeneration, TRS_no_seedling_dyn]) .and. &
             prt_params%allom_dbh_maxheight(pft) > min_max_dbh_for_trees ) then
           
           litt%seed_decay(pft) = litt%seed_decay(pft) + &! From non-seed reproductive biomass (added in
@@ -2271,9 +2275,9 @@ contains
        end if 
 
 
-       ! If the TRS is switched on with seedling dynamics (regeneration_model = 2) 
+       ! If the TRS is switched on with seedling dynamics (hlm_regeneration_model = 2)
        ! then calculate seedling mortality.
-       if_trs_germ_decay: if ( regeneration_model == TRS_regeneration .and. &
+       if_trs_germ_decay: if ( hlm_regeneration_model == TRS_regeneration .and. &
             prt_params%allom_dbh_maxheight(pft) > min_max_dbh_for_trees ) then
           
           !----------------------------------------------------------------------
@@ -2379,8 +2383,8 @@ contains
 
        ! If the TRS's seedling dynamics is switched off, then we use FATES's default approach
        ! to germination 
-       if_tfs_or_def: if ( regeneration_model == default_regeneration .or. &
-            regeneration_model == TRS_no_seedling_dyn .or. & 
+       if_tfs_or_def: if ( hlm_regeneration_model == default_regeneration .or. &
+            hlm_regeneration_model == TRS_no_seedling_dyn .or. &
             prt_params%allom_dbh_maxheight(pft) < min_max_dbh_for_trees ) then
 
           litt%seed_germ_in(pft) =  min(litt%seed(pft) * EDPftvarcon_inst%germination_rate(pft), &  
@@ -2388,7 +2392,7 @@ contains
 
           ! If TRS seedling dynamics is switched on we calculate seedling emergence (i.e. germination)
           ! as a pft-specific function of understory light and soil moisture.
-       else if ( regeneration_model == TRS_regeneration .and. &
+       else if ( hlm_regeneration_model == TRS_regeneration .and. &
             prt_params%allom_dbh_maxheight(pft) > min_max_dbh_for_trees ) then	    
 
           ! Step 1. Calculate how germination rate is modified by understory light
@@ -2430,19 +2434,17 @@ contains
           litt%seed_germ_in(pft) = litt%seed(pft) * seedling_emerg_rate
 
        end if if_tfs_or_def
-    
-      !set the germination only under the growing season...c.xu
 
-      if ((prt_params%season_decid(pft) == itrue ) .and. &
-            (any(cold_stat == [phen_cstat_nevercold,phen_cstat_iscold]))) then
-          ! no germination for all PFTs when cold
-          litt%seed_germ_in(pft) = 0.0_r8
-       endif
-
-       ! Drought deciduous, halt germination when status is shedding, even leaves are not
-       ! completely abscissed. MLO
-       select case (prt_params%stress_decid(pft))
+       select case (prt_params%phen_leaf_habit(pft))
+       case (ihard_season_decid)
+          !set the germination only under the growing season...c.xu
+          if (any(cold_stat == [phen_cstat_nevercold,phen_cstat_iscold])) then
+             ! no germination for all PFTs when cold
+             litt%seed_germ_in(pft) = 0.0_r8
+          end if
        case (ihard_stress_decid,isemi_stress_decid)
+          ! Drought deciduous, halt germination when status is shedding, even leaves are not
+          ! completely abscissed. MLO
           if (any(drought_stat(pft) == [phen_dstat_timeoff,phen_dstat_moistoff,phen_dstat_pshed])) then
              litt%seed_germ_in(pft) = 0.0_r8
           end if
@@ -2553,7 +2555,7 @@ contains
 
             ! but if the plant is seasonally (cold) deciduous, and the site status is flagged
             ! as "cold", then set the cohort's status to leaves_off, and remember the leaf biomass
-            if ((prt_params%season_decid(ft) == itrue) .and.                   &
+            if ((prt_params%phen_leaf_habit(ft) == ihard_season_decid) .and.                   &
                (any(currentSite%cstatus == [phen_cstat_nevercold, phen_cstat_iscold]))) then
                efleaf_coh  = 0.0_r8
                effnrt_coh  = 1.0_r8 - fnrt_drop_fraction
@@ -2566,7 +2568,7 @@ contains
             ! For tissues other than leaves, the actual drop fraction is a combination of the
             ! elongation factor (e) and the drop fraction (x), which will ensure that the remaining
             ! tissue biomass will be exactly e when x=1, and exactly the original biomass when x = 0.
-            select case (prt_params%stress_decid(ft))
+            select case (prt_params%phen_leaf_habit(ft))
             case (ihard_stress_decid, isemi_stress_decid)
                efleaf_coh = currentSite%elong_factor(ft)
                effnrt_coh = 1.0_r8 - (1.0_r8 - efleaf_coh)*fnrt_drop_fraction
@@ -2634,15 +2636,15 @@ contains
 
                   ! If TRS seedling dynamics is switched off then the available mass to make new recruits
                   ! is everything in the seed_germ pool.
-                  if (regeneration_model == default_regeneration .or.          &
-                     regeneration_model == TRS_no_seedling_dyn .or.            & 
+                  if (hlm_regeneration_model == default_regeneration .or.          &
+                     hlm_regeneration_model == TRS_no_seedling_dyn .or.            &
                      prt_params%allom_dbh_maxheight(ft) < min_max_dbh_for_trees) then
 
                      mass_avail = currentPatch%area * currentPatch%litter(el)%seed_germ(ft)
 
                      ! If TRS seedling dynamics is on then calculate the available mass to make new recruits
                      ! as a pft-specific function of light and soil moisture in the seedling layer.
-                  else if (regeneration_model == TRS_regeneration .and.        &
+                  else if (hlm_regeneration_model == TRS_regeneration .and.        &
                      prt_params%allom_dbh_maxheight(ft) > min_max_dbh_for_trees) then
 
                      sdlng2sap_par = currentPatch%sdlng2sap_par%GetMean()*     &
@@ -2799,7 +2801,9 @@ contains
     ! and turnover in dying trees.
     !
     ! !USES:
-
+    use EDParamsMod           , only : landuse_grazing_carbon_use_eff
+    use EDParamsMod           , only : landuse_grazing_nitrogen_use_eff
+    use EDParamsMod           , only : landuse_grazing_phosphorus_use_eff
     !
     ! !ARGUMENTS
     type(ed_site_type), intent(inout), target :: currentSite
@@ -2846,6 +2850,8 @@ contains
     integer  :: numlevsoil        ! Actual number of soil layers
 
     real(r8) :: SF_val_CWD_frac_adj(4) !SF_val_CWD_frac adjusted based on cohort dbh
+    real(r8) :: leaf_herbivory  ! leaf that is eaten by grazers [kg]
+    real(r8) :: herbivory_element_use_efficiency   ! fraction of grazed biomass that is returned to litter pool versus atmosphere
     !----------------------------------------------------------------------
 
     ! -----------------------------------------------------------------------------------
@@ -2855,6 +2861,15 @@ contains
     numlevsoil = currentSite%nlevsoil
 
     element_id = litt%element_id
+
+    select case(element_id)
+       case (carbon12_element)
+          herbivory_element_use_efficiency = landuse_grazing_carbon_use_eff
+       case (nitrogen_element)
+          herbivory_element_use_efficiency = landuse_grazing_nitrogen_use_eff
+       case (phosphorus_element)
+          herbivory_element_use_efficiency = landuse_grazing_phosphorus_use_eff
+    end select
 
     ! Object tracking flux diagnostics for each element
     elflux_diags => currentSite%flux_diags%elem(element_pos(element_id))
@@ -2880,6 +2895,8 @@ contains
        store_m         = currentCohort%prt%GetState(store_organ,element_id)
        fnrt_m          = currentCohort%prt%GetState(fnrt_organ,element_id)
        repro_m         = currentCohort%prt%GetState(repro_organ,element_id)
+
+       leaf_herbivory  = currentCohort%prt%GetHerbivory(leaf_organ, element_id)
 
        if (prt_params%woody(currentCohort%pft) == itrue) then
           ! Assumption: for woody plants fluxes from deadwood and sapwood go together in CWD pool
@@ -2925,7 +2942,9 @@ contains
        do dcmpy=1,ndcmpy
           dcmpy_frac = GetDecompyFrac(pft,leaf_organ,dcmpy)
           litt%leaf_fines_in(dcmpy) = litt%leaf_fines_in(dcmpy) + &
-               (leaf_m_turnover+repro_m_turnover) * plant_dens * dcmpy_frac
+               (leaf_m_turnover+repro_m_turnover + &
+               leaf_herbivory * herbivory_element_use_efficiency) * &
+               plant_dens * dcmpy_frac
 
           dcmpy_frac = GetDecompyFrac(pft,fnrt_organ,dcmpy)
           do ilyr = 1, numlevsoil
@@ -2938,6 +2957,11 @@ contains
             elflux_diags%root_litter_input(pft) +  &
             (fnrt_m_turnover + store_m_turnover ) * currentCohort%n
 
+       ! send the part of the herbivory flux that doesn't go to litter to the atmosphere
+
+       site_mass%herbivory_flux_out = &
+            site_mass%herbivory_flux_out + &
+            leaf_herbivory * (1._r8 - herbivory_element_use_efficiency) * currentCohort%n
 
        ! Assumption: turnover from deadwood and sapwood are lumped together in CWD pool
 

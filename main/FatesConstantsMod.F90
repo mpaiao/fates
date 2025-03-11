@@ -72,21 +72,37 @@ module FatesConstantsMod
                                                      ! but is shedding them (partial shedding). This plant
                                                      ! should not allocate carbon towards growth or 
                                                      ! reproduction.
-integer, parameter, public :: ihard_stress_decid = 1 ! If the PFT is stress (drought) deciduous,
-                                                     !  this flag is used to tell that the PFT
-                                                     !  is a "hard" deciduous (i.e., the plant
-                                                     !  has only two statuses, the plant either
-                                                     !  sheds all leaves when it's time, or seeks
-                                                     !  to flush the leaves back to allometry 
-                                                     !  when conditions improve.
-integer, parameter, public :: isemi_stress_decid = 2 ! If the PFT is stress (drought) deciduous,
-                                                     !  this flag is used to tell that the PFT
-                                                     !  is a semi-deciduous (i.e., the plant
-                                                     !  can downregulate the amount of leaves
-                                                     !  relative to the allometry based on 
-                                                     !  soil moisture conditions. It can still
-                                                     !  shed all leaves if conditions are very
-                                                     !  dry.
+integer, parameter, public :: ievergreen         = 1 ! Flag that indicates that the leaf phenology
+                                                     !    habit for a PFT is evergreen. This means
+                                                     !    that seasonal environmental conditions do
+                                                     !    not directly impact leaf biomass, although
+                                                     !    the total leaf biomass can fall below 
+                                                     !    allometry if the plant's NPP is negative 
+                                                     !    and causes a significant depletion of the
+                                                     !    storage pool.
+integer, parameter, public :: ihard_season_decid = 2 ! Flag that indicates that the leaf phenology
+                                                     !    habit for a PFT is a "hard" season (cold)
+                                                     !    deciduous. This means that the plant
+                                                     !    has only two statuses, the plant either
+                                                     !    abscises all leaves when conditions
+                                                     !    deteriorate, or flushes leaves to bring it
+                                                     !    back to allometry when conditions improve.
+integer, parameter, public :: ihard_stress_decid = 3 ! Flag that indicates that the leaf phenology
+                                                     !    habit for a PFT is a "hard" stress
+                                                     !    (drought) deciduous. This means that the
+                                                     !    plant has only two statuses, the plant
+                                                     !    either abscises all leaves when conditions
+                                                     !    deteriorate, or flushes leaves to bring it
+                                                     !    back to allometry when conditions improve
+integer, parameter, public :: isemi_stress_decid = 4 ! Flag that indicates that the leaf phenology
+                                                     !    habit for a PFT is a stress (hydro)
+                                                     !    semi-deciduous. This means that the plant
+                                                     !    can partially abscise or flush leaves
+                                                     !    based on water availability, and 
+                                                     !    conditions. It can still abscise all leaves
+                                                     !    when conditions are very dry, and flush all
+                                                     !    leaves back to allometry when water is not
+                                                     !    limiting.
 
   integer, parameter, public :: ican_upper = 1  ! nominal index for the upper canopy
   integer, parameter, public :: ican_ustory = 2 ! nominal index for diagnostics that refer to understory layers 
@@ -136,8 +152,8 @@ integer, parameter, public :: isemi_stress_decid = 2 ! If the PFT is stress (dro
                                                             ! secondary 1900s land in hurtt-2011
 
   ! integer labels for specifying harvest units
-  integer, parameter, public :: photosynth_acclim_model_none = 1
-  integer, parameter, public :: photosynth_acclim_model_kumarathunge_etal_2019 = 2
+  integer, parameter, public :: photosynth_acclim_model_none = 0
+  integer, parameter, public :: photosynth_acclim_model_kumarathunge_etal_2019 = 1
 
   ! integer labels for specifying harvest units
   integer, parameter, public :: hlm_harvest_area_fraction = 1 ! Code for harvesting by area

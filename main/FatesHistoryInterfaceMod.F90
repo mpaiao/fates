@@ -2321,7 +2321,8 @@ contains
     ! related to states, and those related to fluxes. States should be fine
     ! to report in ST3 mode.
     
-    if (hlm_use_ed_st3.eq.itrue) return
+    ! Generate all the output
+    ! if (hlm_use_ed_st3.eq.itrue) return
 
     if(hlm_hist_level_dynam>0) then
        call update_history_dyn1(this,nc,nsites,sites,bc_in)

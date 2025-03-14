@@ -13,7 +13,7 @@ this_path=$(pwd)
 #   List of files to use
 #---~---
 default_cdl="fates_params_default.cdl"
-trimmed_cdl="fates_params_4trop_uncalibrated_api37+phen.cdl"
+trimmed_cdl="fates_params_4trop_uncalibrated_api38+phen.cdl"
 #---~---
 
 #---~---

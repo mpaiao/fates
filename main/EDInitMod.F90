@@ -454,7 +454,7 @@ contains
           sites(s)%vegtemp_memory(1:num_vegtemp_mem) = 0._r8
 
           do ft = 1, numpft
-             select case (prt_params%leaf_habit(ft))
+             select case (prt_params%phen_leaf_habit(ft))
              case (ievergreen)
                 ! Evergreens. These variables are not used, set them to any state
                 sites(s)%phen_status (ft) = estat

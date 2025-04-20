@@ -1070,7 +1070,7 @@ contains
        !---~---
        !   COLD (SEASON) DECIDUOUS
        !---~---
-       case_cold_phen: select case (prt_params%leaf_habit(ipft))
+       case_cold_phen: select case (prt_params%phen_leaf_habit(ipft))
        case (ihard_season_decid)
 
           ! Accumulate growing/chilling days after start of counting period
@@ -1441,7 +1441,7 @@ contains
 
           ! Assign elongation factors for non-drought deciduous PFTs, which will be used
           ! to define the cohort status.
-          case_cold_phen: select case(prt_params%phen_leaf_habit(ipft))
+          case_cold_elongf: select case(prt_params%phen_leaf_habit(ipft))
           case (ievergreen)
              ! Evergreen, ensure that elongation factor is always one.
              currentSite%elong_factor(ipft) = 1.0_r8
@@ -1453,7 +1453,7 @@ contains
              case (phen_cstat_notcold)
                 currentSite%elong_factor(ipft) = 1.0_r8
              end select
-          end select case_cold_phen
+          end select case_cold_elongf
 
        end select case_drought_phen
 

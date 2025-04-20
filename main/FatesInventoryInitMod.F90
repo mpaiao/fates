@@ -973,7 +973,7 @@ contains
 
          phen_select: select case (prt_params%phen_leaf_habit(temp_cohort%pft))
          case (ihard_season_decid)
-            if ( any(csite%cstatus(temp_cohort%pft) == [phen_cstat_nevercold,phen_cstat_iscold]) ) then
+            if ( any(csite%phen_status(temp_cohort%pft) == [phen_cstat_nevercold,phen_cstat_iscold]) ) then
                ! Cold deciduous and season is for leaves off. Set leaf status and 
                ! elongation factors accordingly
                temp_cohort%efleaf_coh = 0.0_r8

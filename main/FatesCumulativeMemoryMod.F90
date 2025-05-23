@@ -10,20 +10,24 @@ module FatesCumulativeMemoryMod
 
 
    use EDBtranMod            , only : check_layer_water
-   use EDTypesMod            , only : area_inv
    use EDTypesMod            , only : ed_site_type
    use EDTypesMod            , only : num_vegtemp_mem
    use EDTypesMod            , only : numWaterMem
-   use EDTypesMod            , only : phen_cstat_iscold
    use FatesAllometryMod     , only : set_root_fraction
+   use FatesConstantsMod     , only : ievergreen
+   use FatesConstantsMod     , only : ihard_season_decid
+   use FatesConstantsMod     , only : ihard_stress_decid
+   use FatesConstantsMod     , only : isemi_stress_decid
    use FatesConstantsMod     , only : ndays_per_year
    use FatesConstantsMod     , only : nearzero
+   use FatesConstantsMod     , only : nocomp_bareground
    use FatesConstantsMod     , only : r8   => fates_r8
    use FatesConstantsMod     , only : tfrz => t_water_freeze_k_1atm
    use FatesInterfaceTypesMod, only : bc_in_type
-   use FatesInterfaceTypesMod, only : hlm_day_of_year
+   use FatesInterfaceTypesMod, only : hlm_model_day
    use FatesInterfaceTypesMod, only : numpft
    use FatesPatchMod         , only : fates_patch_type
+   use PRTParametersMod      , only : prt_params
 
    implicit none
    private
@@ -66,7 +70,6 @@ contains
       ! Update moisture-related memory variables.
       call UpdateMemoryMoisture(currentSite,bc_in)
 
-      return
    end subroutine UpdateCumulativeMemoryVars
 
 
@@ -83,15 +86,38 @@ contains
 
       ! Arguments
       type(ed_site_type), intent(inout), target :: currentSite
+      ! Local variables
+      integer :: ipft          ! PFT index
 
       !---~---
-      !    Advance elapsed time. The only reason this is a site variable instead of a 
-      ! global variable is that we need to save this information to the restart file,
-      ! and we do not have global scalars in the restart file.
+      !    Advance elapsed time, by using the host land model variable. The only reason
+      ! this is a site variable instead of a global variable is that we need to save this
+      ! information to the restart file, and we do not have global scalars in the restart
+      ! file. This value starts at zero and increases indefinitely.
       !---~---
-      currentSite%phen_model_date = currentSite%phen_model_date + 1
+      currentSite%phen_model_date = floor(hlm_model_day)
 
-      return
+
+      !   Update the number of days since last flushing and abscission events. This is
+      ! done for deciduous PFTs only. 
+      do ipft = 1, numpft
+         select case (prt_params%phen_leaf_habit(ipft))
+         case (ihard_season_decid,ihard_stress_decid,isemi_stress_decid)
+            !---~---
+            !    Update the number of days since last flushing and abscission events, by
+            ! using the current date and the dates of the last events.  Note that we no
+            ! longer need to check whether this is the beginning of the simulation, 
+            ! because the cold start initialisation already fixes the dates of the last
+            ! event to be prior to the beginning of the simulation.
+            !---~---
+            currentSite%ndaysleafoff(ipft) = &
+               currentSite%phen_model_date - currentSite%leafoffdate(ipft)
+            currentSite%ndaysleafon (ipft) = &
+               currentSite%phen_model_date - currentSite%leafondate (ipft)
+         end select
+      end do
+      !---~---
+
    end subroutine UpdatePhenologyDate
 
 
@@ -142,7 +168,6 @@ contains
       currentSite%vegtemp_memory(1) = temp_in_C
 
 
-      return
    end subroutine UpdateCumulativeThermal
 
 
@@ -161,16 +186,56 @@ contains
       type(bc_in_type),   intent(in)            :: bc_in
 
       ! Local variables
+      type(fates_patch_type), pointer :: cpatch    ! Current patch
       integer  :: ipft              ! Plant Functional Type index
       integer  :: i_wmem            ! Loop counter for water memory days
       integer  :: j                 ! Soil layer index
       integer  :: nlevroot          ! Number of rooting levels to consider
       real(r8) :: rootfrac_notop    ! Total rooting fraction excluding the top soil layer
+      real(r8) :: min_btran         ! Minimum transpiration wetness factor
+      real(r8) :: site_veg_area     ! Fraction of the site area that is not bare
 
+
+      !    Transfer the transpiration wetness factor memory (we always track the last 10
+      ! days). We shift the memory from days to the previous day, and make room for
+      ! current day
+      pft_btransfer_loop: do ipft=1,numpft
+         do i_wmem = numWaterMem,2,-1
+            currentSite%btran_memory (i_wmem,ipft) = currentSite%btran_memory (i_wmem-1,ipft)
+         end do
+      end do pft_btransfer_loop
+
+
+      ! We now loop through all the patches to update the current-day minimum btran
+      currentSite%btran_memory (1,:) = 0._r8
+      site_veg_area                  = 0._r8
+      cpatch => CurrentSite%oldest_patch
+      patch_loop: do while( associated(cpatch) )
+         ! Bypass bare patches
+         if_not_bare: if (cpatch%nocomp_pft_label /= nocomp_bareground) then
+            pft_btranupdate_loop: do ipft=1,numpft
+               currentSite%btran_memory(1,ipft) = currentSite%btran_memory (1,ipft) + &
+                  cpatch%btran24_ft(ipft)%p%GetMin() * cpatch%area
+            end do pft_btranupdate_loop
+
+            site_veg_area = site_veg_area + cpatch%area
+         end if if_not_bare
+
+         cpatch => cpatch%younger
+      end do patch_loop
+
+      ! Check if there is any vegetated patch in this site.
+      if (site_veg_area > nearzero) then
+         ! Normalise site-level btran by the vegetated area
+         currentSite%btran_memory(1,:) = currentSite%btran_memory(1,:) / site_veg_area
+      else
+         ! Dummy btran for non-vegetated area. This shouldn't be used by anything.
+         currentSite%btran_memory(1,:) = 0.5_r8
+      end if
 
 
       ! The soil memory variables are defined for each PFT
-      pft_memory_loop: do ipft=1,numpft
+      pft_soilmem_loop: do ipft=1,numpft
 
          !    Update soil moisture information memory (we always track the last 10 days).
          ! We shift the memory from days to the previous day, and make room for current day
@@ -220,9 +285,8 @@ contains
                   smp_lwr_bound * currentSite%rootfrac_scr(j)  / rootfrac_notop
             end if
          end do root_loop
-      end do pft_memory_loop
+      end do pft_soilmem_loop
 
 
-      return
    end subroutine UpdateMemoryMoisture
 end module FatesCumulativeMemoryMod

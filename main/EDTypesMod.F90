@@ -98,6 +98,7 @@ module EDTypesMod
   !       The default phen_estat_evergreen is a dummy value reserved for evergreen PFTs.
 
   integer, parameter, public :: phen_estat_evergreen = 0  ! This PFT is evergreen.
+<<<<<<< HEAD
   integer, parameter, public :: phen_cstat_nevercold = 1  ! This (location/plant) has not experienced a cold period over a large number
                                                           !    of days, leaves are dropped and flagged as non-cold region
   integer, parameter, public :: phen_cstat_iscold    = 2  ! This (location/plant) is in a cold-state where leaves should have fallen
@@ -108,6 +109,21 @@ module EDTypesMod
   integer, parameter, public :: phen_dstat_moiston   = 6  ! Leaves on due to moisture avail   (drought phenology)
   integer, parameter, public :: phen_dstat_timeon    = 7  ! Leaves on due to time exceedance  (drought phenology)
   integer, parameter, public :: phen_dstat_pshed     = 8  ! Leaves partially abscissing       (drought phenology)
+=======
+
+                                                          ! Season (cold) deciduous flags
+  integer, parameter, public :: phen_cstat_timeoff   = 1  ! - Leaves off due to time, leaves exceeded life span without cold days
+  integer, parameter, public :: phen_cstat_tempoff   = 2  ! - Leaves off after reaching multiple cold days
+  integer, parameter, public :: phen_cstat_tempon    = 3  ! - Leaves on after exceeding the growing degree day threshold
+  integer, parameter, public :: phen_cstat_timeon    = 4  ! - Leaves on after extended cold period, forced flushing
+
+                                                          ! Stress (drought) deciduous flags
+  integer, parameter, public :: phen_dstat_timeoff   = 5  ! Leaves off due to time, leaves exceeded life span without desiccation
+  integer, parameter, public :: phen_dstat_moistoff  = 6  ! Leaves off after moisture availability fell below the threshold
+  integer, parameter, public :: phen_dstat_moiston   = 7  ! Leaves on after moisture availability increased above the threshold
+  integer, parameter, public :: phen_dstat_timeon    = 8  ! Leaves on after extended dry period, forced flushing
+  integer, parameter, public :: phen_dstat_pshed     = 9  ! Leaves partially abscissing due to drying conditions
+>>>>>>> mpaiao-pr-decid-btran
 
   ! PATCH FUSION 
   real(r8), parameter, public :: force_patchfuse_min_biomass = 0.005_r8   ! min biomass (kg / m2 patch area) below which to force-fuse patches
@@ -446,6 +462,10 @@ module EDTypesMod
                                                                ! in runs that are restarted, regardless of
                                                                ! the conditions of restart
 
+<<<<<<< HEAD
+=======
+     real(r8), dimension(numWaterMem,maxpft) ::  btran_memory  ! last 10 days of transpiration wetness factor (drought phenology)
+>>>>>>> mpaiao-pr-decid-btran
      real(r8), dimension(numWaterMem,maxpft) ::  liqvol_memory ! last 10 days of soil liquid water volume (drought phenology)
      real(r8), dimension(numWaterMem,maxpft) ::  smp_memory    ! last 10 days of soil matric potential (drought phenology)
 

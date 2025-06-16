@@ -12,11 +12,11 @@ module EDMortalityFunctionsMod
    use FatesCohortMod        , only : fates_cohort_type
    use EDTypesMod            , only : ed_site_type
    use EDParamsMod,            only : maxpft
-   use EDParamsMod           , only : mort_cstarvation_model
    use FatesConstantsMod     , only : itrue,ifalse
    use FatesConstantsMod     , only : cstarvation_model_lin
    use FatesConstantsMod     , only : cstarvation_model_exp
    use FatesConstantsMod     , only : nearzero
+   use FatesConstantsMod     , only : ihard_season_decid
    use FatesConstantsMod     , only : ihard_stress_decid
    use FatesConstantsMod     , only : isemi_stress_decid
    use FatesConstantsMod     , only : leaves_off
@@ -29,7 +29,7 @@ module EDMortalityFunctionsMod
    use FatesInterfaceTypesMod     , only : hlm_use_tree_damage
    use EDLoggingMortalityMod , only : LoggingMortality_frac
    use EDParamsMod           , only : fates_mortality_disturbance_fraction
-
+   use FatesConstantsMod     , only : n_landuse_cats
    use PRTGenericMod,          only : carbon12_element
    use PRTGenericMod,          only : store_organ
    use PRTParametersMod      , only : prt_params
@@ -68,6 +68,7 @@ contains
     use FatesConstantsMod,      only : fates_check_param_set
     use DamageMainMod,          only : GetDamageMortality
     use EDParamsmod,            only : soil_tfrz_thresh
+    use FatesInterfaceTypesMod, only : hlm_mort_cstarvation_model
     
     type (fates_cohort_type), intent(in) :: cohort_in 
     type (bc_in_type), intent(in) :: bc_in
@@ -112,11 +113,9 @@ contains
     ! the future we could accelerate senescence to avoid mortality. Note that both drought 
     ! deciduous and cold deciduous are considered here to be consistent with the idea that
     ! plants without leaves cannot die of hydraulic failure.
-    is_decid_dormant =                                                            & !
-       ( prt_params%stress_decid(cohort_in%pft) == ihard_stress_decid .or.        & ! Drought deciduous
-         prt_params%stress_decid(cohort_in%pft) == isemi_stress_decid .or.        & ! Semi-deciduous
-         prt_params%season_decid(cohort_in%pft) == itrue                  ) .and. & ! Cold deciduous
-       ( cohort_in%status_coh == leaves_off )                                     ! ! Fully abscised
+    is_decid_dormant =                                                                                                      & !
+       any ( prt_params%phen_leaf_habit(cohort_in%pft) == [ihard_season_decid,ihard_stress_decid,isemi_stress_decid]) .and. & ! Deciduous
+       ( cohort_in%status_coh == leaves_off )                                                                               ! ! Fully abscised
     
     ! Size Dependent Senescence
     ! rate (r) and inflection point (ip) define the increase in mortality rate with dbh
@@ -204,7 +203,7 @@ contains
           call storage_fraction_of_target(target_leaf_c, store_c, frac)
 
           ! Select the carbon starvation mortality model (linear or exponential)s.
-          select case (mort_cstarvation_model)
+          select case (hlm_mort_cstarvation_model)
           case (cstarvation_model_lin)
              ! Linear model. Carbon starvation mortality will be zero when fraction of
              ! storage is greater than or equal to mort_upthresh_cstarvation, and will
@@ -223,7 +222,7 @@ contains
 
           case default
               write(fates_log(),*) &
-                 'Invalid carbon starvation model (',mort_cstarvation_model,').'
+                 'Invalid carbon starvation model (',hlm_mort_cstarvation_model,').'
               call endrun(msg=errMsg(sourcefile, __LINE__))
           end select
 
@@ -281,7 +280,7 @@ contains
 
  subroutine Mortality_Derivative( currentSite, currentCohort, bc_in, btran_ft, &
       mean_temp, land_use_label, age_since_anthro_disturbance,       &
-      frac_site_primary, frac_site_secondary, harvestable_forest_c, harvest_tag)
+      current_fates_landuse_state_vector, harvestable_forest_c, harvest_tag)
 
     !
     ! !DESCRIPTION:
@@ -300,9 +299,8 @@ contains
     real(r8),         intent(in)               :: mean_temp
     integer,          intent(in)               :: land_use_label
     real(r8),         intent(in)               :: age_since_anthro_disturbance
-    real(r8),         intent(in)               :: frac_site_primary
-    real(r8),         intent(in)               :: frac_site_secondary
-
+    real(r8),         intent(in)               :: current_fates_landuse_state_vector(n_landuse_cats)
+    
     real(r8), intent(in) :: harvestable_forest_c(:)   ! total carbon available for logging, kgC site-1
     integer, intent(out) :: harvest_tag(:)    ! tag to record the harvest status
                                               ! for the calculation of harvest debt in C-based
@@ -340,7 +338,7 @@ contains
                                bc_in%hlm_harvest_units, &
                                land_use_label, &
                                age_since_anthro_disturbance, &
-                               frac_site_primary, frac_site_secondary, harvestable_forest_c, harvest_tag)
+                               current_fates_landuse_state_vector, harvestable_forest_c, harvest_tag)
 
     if (currentCohort%canopy_layer > 1)then 
        ! Include understory logging mortality rates not associated with disturbance

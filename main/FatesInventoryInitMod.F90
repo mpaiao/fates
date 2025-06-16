@@ -28,11 +28,10 @@ module FatesInventoryInitMod
    ! FATES GLOBALS
    use FatesConstantsMod, only : r8 => fates_r8
    use FatesConstantsMod, only : pi_const
-   use FatesConstantsMod, only : itrue
    use FatesConstantsMod, only : nearzero
    use FatesGlobals     , only : endrun => fates_endrun
    use FatesGlobals     , only : fates_log
-   use EDParamsMod      , only : regeneration_model
+   use FatesInterfaceTypesMod, only : hlm_regeneration_model
    use FatesInterfaceTypesMod, only : bc_in_type
    use FatesInterfaceTypesMod, only : hlm_inventory_ctrl_file
    use FatesInterfaceTypesMod, only : nleafage
@@ -45,6 +44,8 @@ module FatesInventoryInitMod
    use EDTypesMod       , only : area
    use FatesConstantsMod, only : leaves_on
    use FatesConstantsMod, only : leaves_off
+   use FatesConstantsMod, only : ievergreen
+   use FatesConstantsMod, only : ihard_season_decid
    use FatesConstantsMod, only : ihard_stress_decid
    use FatesConstantsMod, only : isemi_stress_decid
    use PRTGenericMod    , only : num_elements
@@ -121,8 +122,6 @@ contains
       use FatesConstantsMod, only   : nearzero
       use EDPatchDynamicsMod, only  : fuse_patches
       use EDCohortDynamicsMod, only : fuse_cohorts
-      use EDCohortDynamicsMod, only : sort_cohorts
-      use EDcohortDynamicsMod, only : count_cohorts
       use EDPatchDynamicsMod, only  : patch_pft_size_profile
 
       ! Arguments
@@ -285,7 +284,7 @@ contains
             allocate(newpatch)
             call newpatch%Create(age_init, area_init, primaryland,           &
                fates_unset_int, num_swb, numpft, sites(s)%nlevsoil,         &
-               hlm_current_tod, regeneration_model)
+               hlm_current_tod, hlm_regeneration_model)
 
             newpatch%patchno = ipa
             newpatch%younger => null()
@@ -430,11 +429,11 @@ contains
 
             ! Perform Cohort Fusion
             call fuse_cohorts(sites(s), currentpatch,bc_in(s))
-            call sort_cohorts(currentpatch)
+            call currentpatch%SortCohorts()
 
-            ! This calculates %countcohorts
-            call count_cohorts(currentpatch)
-            total_cohorts = total_cohorts + currentPatch%countcohorts
+            ! This calculates %num_cohorts
+            call currentPatch%CountCohorts()
+            total_cohorts = total_cohorts + currentPatch%num_cohorts
 
             currentPatch => currentpatch%older
          enddo
@@ -798,6 +797,7 @@ contains
       class(prt_vartypes), pointer                :: prt_obj
       real(r8)                                    :: c_time        ! Time patch was recorded
       character(len=patchname_strlen)             :: p_name        ! The patch associated with this cohort
+      character(len=patchname_strlen)             :: c_name        ! Cohort name
       real(r8)                                    :: c_dbh         ! diameter at breast height (cm)
       real(r8)                                    :: c_height      ! tree height (m)
       integer                                     :: c_pft         ! plant functional type index
@@ -840,10 +840,16 @@ contains
       real(r8), parameter :: abnormal_large_dbh    = 500.0_r8   ! I've never heard of a tree > 3m
       real(r8), parameter :: abnormal_large_height = 500.0_r8   ! I've never heard of a tree > 500m tall
       integer,  parameter :: recruitstatus = 0
+      logical, parameter :: old_type1_override = .false.
 
-     
-      read(css_file_unit,fmt=*,iostat=ios) c_time, p_name, c_dbh, &
-            c_height, c_pft, c_nplant
+      if(old_type1_override) then
+         ! time patch cohort dbh hite pft nplant bdead alive Avgrg 
+         read(css_file_unit,fmt=*,iostat=ios) c_time, p_name, c_name, c_dbh, &
+              c_height, c_pft, c_nplant
+      else
+         read(css_file_unit,fmt=*,iostat=ios) c_time, p_name, c_dbh, &
+              c_height, c_pft, c_nplant
+      end if
 
       if( debug_inv) then
          write(*,fmt=wr_fmt) &
@@ -965,17 +971,24 @@ contains
          fnrt_drop_fraction = prt_params%phen_fnrt_drop_fraction(temp_cohort%pft)
          stem_drop_fraction = prt_params%phen_stem_drop_fraction(temp_cohort%pft)
 
-         if( prt_params%season_decid(temp_cohort%pft) == itrue .and. &
-              any(csite%cstatus == [phen_cstat_nevercold,phen_cstat_iscold])) then
-            ! Cold deciduous and season is for leaves off. Set leaf status and 
-            ! elongation factors accordingly
-            temp_cohort%efleaf_coh = 0.0_r8
-            temp_cohort%effnrt_coh = 1._r8 - fnrt_drop_fraction
-            temp_cohort%efstem_coh = 1._r8 - stem_drop_fraction
+         phen_select: select case (prt_params%phen_leaf_habit(temp_cohort%pft))
+         case (ihard_season_decid)
+            if ( any(csite%cstatus == [phen_cstat_nevercold,phen_cstat_iscold]) ) then
+               ! Cold deciduous and season is for leaves off. Set leaf status and 
+               ! elongation factors accordingly
+               temp_cohort%efleaf_coh = 0.0_r8
+               temp_cohort%effnrt_coh = 1._r8 - fnrt_drop_fraction
+               temp_cohort%efstem_coh = 1._r8 - stem_drop_fraction
+               temp_cohort%status_coh = leaves_off
+            else
+               ! Cold deciduous during the growing season. Assume tissues are fully flushed.
+               temp_cohort%efleaf_coh = 1.0_r8
+               temp_cohort%effnrt_coh = 1.0_r8
+               temp_cohort%efstem_coh = 1.0_r8
+               temp_cohort%status_coh = leaves_on
+            end if
 
-            temp_cohort%status_coh = leaves_off
-
-         elseif ( any(prt_params%stress_decid(temp_cohort%pft) == [ihard_stress_decid,isemi_stress_decid])) then
+         case (ihard_stress_decid,isemi_stress_decid)
             ! Drought deciduous.  For the default approach, elongation factor is either
             ! zero (full abscission) or one (fully flushed), but this can also be a
             ! fraction in other approaches. Here we assume that leaves are "on" (i.e.
@@ -997,14 +1010,13 @@ contains
                ! Leaves are off (abscissing).
                temp_cohort%status_coh = leaves_off
             end if
-         else
-            ! Evergreen, or deciduous PFT during the growing season. Assume tissues are fully flushed.
+         case (ievergreen)
+            ! Evergreen. Assume tissues are fully flushed.
             temp_cohort%efleaf_coh = 1.0_r8
             temp_cohort%effnrt_coh = 1.0_r8
             temp_cohort%efstem_coh = 1.0_r8
-
             temp_cohort%status_coh = leaves_on
-         end if
+         end select phen_select
 
          call bagw_allom(temp_cohort%dbh,temp_cohort%pft, &
               temp_cohort%crowndamage, temp_cohort%efstem_coh, c_agw)
@@ -1125,6 +1137,7 @@ contains
          deallocate(temp_cohort) ! get rid of temporary cohort
 
       end do
+      call cpatch%ValidateCohorts()
 
       return
     end subroutine set_inventory_cohort_type1
@@ -1179,10 +1192,10 @@ contains
        else
            ilon_sign = 'W'
        end if
-
-       write(pss_name_out,'(A8, I2.2, A1, I5.5, A1)') &
+ 
+       write(pss_name_out,'(A8,I2.2,A1,I5.5,A1,A1,I3.3,A1,I5.5,A1,A4)') &
              'pss_out_',ilat_int,'.',ilat_dec,ilat_sign,'_',ilon_int,'.',ilon_dec,ilon_sign,'.txt'
-       write(css_name_out,'(A8, I2.2,  A1, A1, I3.3, A1)') &
+       write(css_name_out,'(A8,I2.2,A1,I5.5,A1,A1,I3.3,A1,I5.5,A1,A4)') &
              'css_out_',ilat_int,'.',ilat_dec,ilat_sign,'_',ilon_int,'.',ilon_dec,ilon_sign,'.txt'
 
        pss_file_out       = shr_file_getUnit()
@@ -1208,7 +1221,7 @@ contains
            do while(associated(currentcohort))
                icohort=icohort+1
                write(css_file_out,*) '0000 ',trim(patch_str), &
-                     currentCohort%dbh,currentCohort%height,currentCohort%pft,currentCohort%n/currentPatch%area
+                     currentCohort%dbh,-3.0_r8,currentCohort%pft,currentCohort%n/currentPatch%area
 
                currentcohort => currentcohort%shorter
            end do
